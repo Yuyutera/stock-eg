@@ -157,38 +157,36 @@ if picks:
         if i < len(picks):
             pick = picks[i]
             with col:
-                st.markdown(f"""
-                <div class="insight-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="stock-badge">{pick.get('name', 'N/A')}</span>
-                        <span style="color:#818cf8; font-weight:700;">#{pick.get('rank', '0')}</span>
-                    </div>
-                    <div class="price-main">{pick.get('entry_price', 0):.2f} <small style="font-size:0.5em; color:#94a3b8;">EGP</small></div>
-                    
-                    <div class="metric-grid">
-                        <div class="sub-metric">
-                            <div class="label-tiny">Target (5%)</div>
-                            <div class="val-med val-green">{pick.get('target_price', 0):.2f}</div>
-                        </div>
-                        <div class="sub-metric">
-                            <div class="label-tiny">Stop (3%)</div>
-                            <div class="val-med val-red">{pick.get('stop_loss', 0):.2f}</div>
-                        </div>
-                        <div class="sub-metric">
-                            <div class="label-tiny">RSI</div>
-                            <div class="val-med">{pick.get('rsi', 0):.1f}</div>
-                        </div>
-                        <div class="sub-metric">
-                            <div class="label-tiny">Vol Gain</div>
-                            <div class="val-med">{pick.get('volume_spike', 1.0):.1f}x</div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top:20px; padding:8px; background:rgba(129, 140, 248, 0.1); border-radius:8px; text-align:center; color:#818cf8; font-size:0.8rem; font-weight:600;">
-                        {pick.get('signal_type', 'ANALYZING').upper()}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                signal_color = "#34d399" if pick.get("signal_type") == "Strong Signal" else "#fbbf24"
+                card_html = f"""<div class="insight-card">
+<div style="display:flex; justify-content:space-between; align-items:center;">
+<span class="stock-badge">{pick.get('name', 'N/A')}</span>
+<span style="color:#818cf8; font-weight:700;">#{pick.get('rank', '0')}</span>
+</div>
+<div class="price-main">{pick.get('entry_price', 0):.2f} <small style="font-size:0.5em; color:#94a3b8;">EGP</small></div>
+<div class="metric-grid">
+<div class="sub-metric">
+<div class="label-tiny">Target (5%)</div>
+<div class="val-med val-green">{pick.get('target_price', 0):.2f}</div>
+</div>
+<div class="sub-metric">
+<div class="label-tiny">Stop (3%)</div>
+<div class="val-med val-red">{pick.get('stop_loss', 0):.2f}</div>
+</div>
+<div class="sub-metric">
+<div class="label-tiny">RSI</div>
+<div class="val-med">{pick.get('rsi', 0):.1f}</div>
+</div>
+<div class="sub-metric">
+<div class="label-tiny">Vol Gain</div>
+<div class="val-med">{pick.get('volume_spike', 1.0):.1f}x</div>
+</div>
+</div>
+<div style="margin-top:20px; padding:8px; background:rgba(129, 140, 248, 0.1); border-radius:8px; text-align:center; color:#818cf8; font-size:0.8rem; font-weight:600;">
+{pick.get('signal_type', 'ANALYZING').upper()}
+</div>
+</div>"""
+                st.markdown(card_html, unsafe_allow_html=True)
 else:
     st.warning("NO SIGNALS DETECTED IN THE CURRENT DATA STREAM.")
 

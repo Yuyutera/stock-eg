@@ -207,15 +207,18 @@ def find_top_picks(df: pd.DataFrame) -> List[Dict]:
             config.VOLUME_SPIKE_MULTIPLIER,
         )
         # Fallback: return top 3 by lowest RSI as "watchlist" items.
-        # This ensures the user always gets something actionable.
-        watchlist = df[df["RSI_14"].notna()].nsmallest(
-            config.TOP_N_PICKS, "RSI_14"
-        )
+        # Deduplicate names (keep lowest RSI for each name).
+        df_sorted = df[df["RSI_14"].notna()].sort_values("RSI_14")
+        watchlist = df_sorted.drop_duplicates(subset=["Name"]).head(config.TOP_N_PICKS)
+        
         picks = _format_picks(watchlist, signal_type="Watchlist")
         return picks
 
-    # Step 3 & 4: Sort + take top N.
-    candidates = candidates.nlargest(config.TOP_N_PICKS, "Volume_Spike")
+    # Step 3 & 4: Deduplicate names, sort + take top N.
+    # Keep the one with the highest Volume_Spike for each name.
+    candidates = candidates.sort_values("Volume_Spike", ascending=False)
+    candidates = candidates.drop_duplicates(subset=["Name"])
+    candidates = candidates.head(config.TOP_N_PICKS)
 
     # Step 5: Format output.
     picks = _format_picks(candidates, signal_type="Strong Signal")
