@@ -89,10 +89,16 @@ TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "821030357")
 # ─────────────────────────────────────────────
 # 6. SCHEDULER
 # ─────────────────────────────────────────────
-# EGX trades Sunday → Thursday.  Friday & Saturday are off.
-# Report fires at 08:30 Cairo Local Time (CLT = Africa/Cairo).
-SCHEDULE_HOUR     = 10
-SCHEDULE_MINUTE   = 0
+# EGX trades Sunday → Thursday, 10:00 AM – 2:30 PM Cairo Time.
+# Three analysis runs per day:
+#   1. Market Open  → 10:00 AM
+#   2. Mid-Day      → 12:15 PM
+#   3. Pre-Close    → 02:00 PM (30 min before close)
+SCHEDULE_TIMES = [
+    {"hour": 10, "minute": 0,  "label": "Market Open"},
+    {"hour": 12, "minute": 15, "label": "Mid-Day"},
+    {"hour": 14, "minute": 0,  "label": "Pre-Close"},
+]
 SCHEDULE_TIMEZONE = "Africa/Cairo"
 
 # Day-of-week filter: 0=Mon … 6=Sun.

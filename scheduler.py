@@ -40,7 +40,7 @@ logging.basicConfig(
 
 def morning_job():
     """
-    The main daily job. Called by APScheduler at 08:30 CLT.
+    The main analysis job. Called by APScheduler at each scheduled time.
 
     Steps:
         1. Run the core pipeline (scrape + analyze).
@@ -48,7 +48,7 @@ def morning_job():
         3. Log the outcome.
     """
     logger.info("=" * 60)
-    logger.info("🌅 MORNING JOB TRIGGERED — %s", datetime.now().isoformat())
+    logger.info("📊 ANALYSIS JOB TRIGGERED — %s", datetime.now().isoformat())
     logger.info("=" * 60)
 
     # Run the pipeline.
@@ -87,42 +87,43 @@ def morning_job():
             pass  # Don't let the error notification crash the scheduler.
 
     logger.info("=" * 60)
-    logger.info("Morning job completed.\n")
+    logger.info("Analysis job completed.\n")
 
 
 def start_scheduler():
     """
-    Start the APScheduler with a cron trigger for EGX trading days.
+    Start the APScheduler with 3 cron triggers for EGX trading days.
 
-    Schedule: 08:30 CLT, Sunday through Thursday.
-        - day_of_week: 'sun,mon,tue,wed,thu'
-        - hour: 8, minute: 30
-        - timezone: Africa/Cairo
+    Schedule (Cairo Time, Sun–Thu):
+        1. 10:00 AM  — Market Open
+        2. 12:15 PM  — Mid-Day
+        3.  2:00 PM  — Pre-Close (30 min before 2:30 PM close)
     """
     scheduler = BlockingScheduler()
 
-    # APScheduler uses 3-letter day abbreviations.
-    # EGX trading days: Sun, Mon, Tue, Wed, Thu.
-    trigger = CronTrigger(
-        day_of_week="sun,mon,tue,wed,thu",
-        hour=config.SCHEDULE_HOUR,
-        minute=config.SCHEDULE_MINUTE,
-        timezone=config.SCHEDULE_TIMEZONE,
-    )
+    # Register a cron job for each scheduled time.
+    for i, schedule in enumerate(config.SCHEDULE_TIMES):
+        trigger = CronTrigger(
+            day_of_week="sun,mon,tue,wed,thu",
+            hour=schedule["hour"],
+            minute=schedule["minute"],
+            timezone=config.SCHEDULE_TIMEZONE,
+        )
 
-    scheduler.add_job(
-        morning_job,
-        trigger=trigger,
-        id="egx_morning_report",
-        name="EGX Morning Report",
-        misfire_grace_time=3600,  # If the job misses, still run within 1 hour.
-        max_instances=1,          # Never run 2 instances simultaneously.
-    )
+        scheduler.add_job(
+            morning_job,
+            trigger=trigger,
+            id=f"egx_report_{i}",
+            name=f"EGX {schedule['label']} Report",
+            misfire_grace_time=3600,
+            max_instances=1,
+        )
 
     logger.info("━" * 50)
-    logger.info("📅 EGX Scheduler Started")
-    logger.info(f"   Schedule: {config.SCHEDULE_HOUR:02d}:{config.SCHEDULE_MINUTE:02d} CLT")
-    logger.info("   Days: Sun, Mon, Tue, Wed, Thu")
+    logger.info("📅 EGX Scheduler Started — 3 Daily Runs")
+    for s in config.SCHEDULE_TIMES:
+        logger.info(f"   ⏰ {s['hour']:02d}:{s['minute']:02d} CLT — {s['label']}")
+    logger.info(f"   Days: Sun, Mon, Tue, Wed, Thu")
     logger.info(f"   Timezone: {config.SCHEDULE_TIMEZONE}")
     logger.info("━" * 50)
     logger.info("Waiting for next trigger… (Ctrl+C to stop)\n")
