@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Database
+egx_data.db
+
+# Secrets
+.env
+
+# Streamlit
+.streamlit/
+static/
+
+# IDEs
+.vscode/
+.idea/

@@ -1,0 +1,29 @@
+# ─────────────────────────────────────────────────────────────
+# EGX Intelligence System — Python Dependencies
+# ─────────────────────────────────────────────────────────────
+# Install with:  pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────────
+
+# Module 1: Resilient Data Acquisition
+cloudscraper>=1.2.71       # Bypass Cloudflare JS challenges
+beautifulsoup4>=4.12.0     # HTML parsing
+lxml>=5.0.0                # Fast BS4 backend (optional but recommended)
+
+# Module 2: Data Science & Technical Analysis
+pandas>=2.1.0              # DataFrames — the backbone of our data pipeline
+pandas-ta>=0.3.14b1        # 130+ technical indicators (RSI, MACD, SMA, etc.)
+numpy>=1.26.0              # Numerical computing (pandas dependency)
+
+# Module 3: Telegram Bot
+python-telegram-bot>=20.7  # Async Telegram API wrapper
+
+# Module 4: Web Dashboard
+streamlit>=1.30.0          # Turn Python scripts into web apps
+plotly>=5.18.0             # Interactive charts for the dashboard
+
+# Module 5: Scheduling
+APScheduler>=3.10.4        # Cron-like job scheduling
+pytz>=2024.1               # Timezone handling (Africa/Cairo)
+
+# Module 6: Database (built-in, no install needed)
+# sqlite3 is part of the Python standard library
