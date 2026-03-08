@@ -84,14 +84,34 @@ python scheduler.py
 python scheduler.py --now
 ```
 
-## 📊 Selection Criteria
+## 📊 Selection Logic & Strategy
 
+The system identifies "Mean Reversion" opportunities—stocks that are mathematically oversold but show signs of institutional accumulation.
+
+### 1. The Strategy: "Buying the Quality Dip"
+The core objective is to find high-probability reversal points. We look for two specific anomalies happening simultaneously:
+*   **Oversold Price Action**: Price has dropped faster than historical norms.
+*   **Institutional Confirmation**: High trading volume suggests "Smart Money" is stepping in to support the price.
+
+### 2. How it Works (The Pipeline)
+1.  **Scrape**: Pulls live data from EGX equities tables.
+2.  **Enrich**: Combines today's data with historical data from SQLite to calculate moving averages.
+3.  **Analyze**: 
+    *   **Filter 1 (RSI < 35)**: Eliminates any stock not in an "Oversold" state.
+    *   **Filter 2 (Volume Spike ≥ 1.5x)**: Eliminates stocks where the price drop isn't backed by an increase in relative trading volume (10-day average).
+4.  **Rank**: All stocks passing both filters are ranked by the **magnitude of the Volume Spike**. The larger the spike, the higher the conviction.
+5.  **Output**: The **Top 3** ranked stocks are selected. 
+
+### 3. Fallback Mechanism (The Watchlist)
+If the market is quiet and *no* stocks meet the strict Volume Spike threshold, the system triggers **Safety Mode**. Instead of an empty report, it identifies the **3 most oversold stocks** (lowest RSI) and labels them as a **Watchlist**. This ensures you are always tracking the most significant pullbacks in the market.
+
+### 4. Technical Indicators
 | Indicator | Threshold | Why |
 |-----------|-----------|-----|
-| RSI(14)   | < 35      | Stock is "oversold" — potential reversal |
-| Volume Spike | ≥ 1.5× | Volume is 50%+ above 10-day average |
-| Target    | +5%       | Take-profit level above entry |
-| Stop-Loss | −3%       | Risk management below entry |
+| RSI(14)   | < 35      | Stock is mathematically "oversold" — potential reversal. |
+| Volume Spike | ≥ 1.5× | Today's volume is 50%+ above 10-day average — suggests accumulation. |
+| Target    | +5%       | Automatic take-profit level set above entry. |
+| Stop-Loss | −3%       | Strict risk management level set below entry. |
 
 ## ⚠️ Disclaimer
 
