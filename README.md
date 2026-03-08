@@ -1,118 +1,95 @@
-# 📈 EGX Intelligence System
+# � EGX Intelligence System
 
-> A fully automated intelligence system that identifies the **Top 3 investment opportunities** in the Egyptian Stock Exchange (EGX) every morning before market open.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit App](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=Streamlit&logoColor=white)](https://streamlit.io/)
+[![Telegram Bot](https://img.shields.io/badge/Telegram-26A6E1?style=flat&logo=Telegram&logoColor=white)](https://t.me/egx67_bot)
+
+A premium, fully automated intelligence pipeline designed for the **Egyptian Stock Exchange (EGX)**. This system identifies the **Top 3 High-Conviction investment opportunities** every morning before the market opens, delivering them straight to your Telegram.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────────┐
-│   Scraper    │────▶│   Database   │────▶│    Analyzer       │
-│ (cloudscraper│     │  (SQLite)    │     │ (RSI, MACD, Vol) │
-│  + BS4)      │     └──────────────┘     └───────┬──────────┘
-└──────────────┘                                  │
-                                                  ▼
-                                    ┌─────────────────────────┐
-                                    │      Top 3 Picks        │
-                                    │  Entry / Target / Stop  │
-                                    └──────┬──────────┬───────┘
-                                           │          │
-                                    ┌──────▼──┐  ┌───▼────────┐
-                                    │Telegram │  │ Streamlit   │
-                                    │   Bot   │  │ Dashboard   │
-                                    │[@egx67](https://t.me/egx67_bot)│  └────────────┘
-                                    └─────────┘
+```mermaid
+graph LR
+    A[Scraper] -->|Raw Data| B[SQLite DB]
+    B --> C[Analytical Engine]
+    C -->|Top 3 Picks| D[Telegram Bot]
+    C -->|Top 3 Picks| E[Streamlit Dashboard]
+    F[Scheduler] -->|10:00 CLT| A
 ```
 
-## 📁 Project Structure
+---
 
-```
-stock/
-├── config.py          # Centralized configuration & thresholds
-├── scraper.py         # Web scraping with Cloudflare bypass
-├── analyzer.py        # Technical analysis engine
-├── core_engine.py     # Unified pipeline (scrape → analyze → store)
-├── database.py        # SQLite data persistence
-├── telegram_bot.py    # Telegram notification formatting & sending
-├── app.py             # Streamlit web dashboard
-├── scheduler.py       # APScheduler (08:30 CLT, Sun–Thu)
-├── requirements.txt   # Python dependencies
-└── README.md          # This file
-```
+## 🧠 The Intelligence Logic
 
-## 🚀 Quick Start
+Our "Mean Reversion" strategy focuses on finding stocks that are mathematically **oversold** but showing signs of **institutional accumulation**.
 
-### 1. Install Dependencies
+### Step 1: The Filter (The "Buy the Dip" Test)
+The system scans every stock in the EGX and applies a strict mathematical filter. It only keeps stocks where the **RSI (14) < 35**. This identifies stocks that have been pushed lower than their historical value.
 
+### Step 2: The Ranking (The "Smart Money" Test)
+Of the oversold stocks, we rank them by **Volume Spike**. We compute Today's Volume vs. the 10-day Average.
+*   **A Volume Spike ≥ 1.5x** suggests big institutions are accumulating shares at the bottom.
+*   We pick the **Top 3** stocks with the highest volume surge.
+
+### Step 3: Risk Management
+For every pick, the system automatically calculates:
+-   💰 **Entry Price**: Current market price.
+-   🎯 **Target Price**: +5.0% (Calculated take-profit).
+-   🛑 **Stop-Loss**: -3.0% (Strict downside protection).
+
+---
+
+## 🚀 Getting Started
+
+### 1. Installation
+Clone the repository and install the dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Run the Core Engine (Manual Test)
-
-```bash
-python core_engine.py
+### 2. Configuration
+Open `config.py` to customize your thresholds or set your Telegram credentials:
+```python
+TELEGRAM_BOT_TOKEN = "your_token"
+TELEGRAM_CHAT_ID   = "your_id"
 ```
 
-This will scrape EGX data, run the analysis, and show the Top 3 picks.
+### 3. Usage
+| Action | Command | Description |
+| :--- | :--- | :--- |
+| **Manual Run** | `python core_engine.py` | Run the full pipeline immediately. |
+| **Dashboard** | `streamlit run app.py` | Launch the visual web interface. |
+| **Schedule** | `python scheduler.py` | Start the daily 10:00 AM automation. |
 
-### 3. Launch the Dashboard
+---
 
-```bash
-streamlit run app.py
-```
+## 📊 Technical Indicators
 
-### 4. Set Up Telegram (Optional)
+| Indicator | Threshold | Rationale |
+| :--- | :--- | :--- |
+| **RSI (14)** | `< 35` | Mathematically "Cheap" / Reversal Candidate. |
+| **Volume Spike** | `≥ 1.5×` | Relative surge suggesting institutional support. |
+| **Profit Target** | `+5.0%` | Disciplined exit on strength. |
+| **Stop-Loss** | `-3.0%` | Capital preservation on weakness. |
 
-```powershell
-# Windows PowerShell
-$env:TELEGRAM_BOT_TOKEN = "your-bot-token-here"
-$env:TELEGRAM_CHAT_ID   = "your-chat-id-here"
+---
 
-# Test sending
-python telegram_bot.py
-```
+## 📂 Project Structure
 
-### 5. Start the Scheduler (Production)
+-   `config.py`: Centralized settings & thresholds.
+-   `scraper.py`: Cloudflare-resistant data acquisition.
+-   `analyzer.py`: The RSI & Volume analysis engine.
+-   `database.py`: SQLite persistence for historical tracking.
+-   `telegram_bot.py`: Premium reporting & notifications.
+-   `app.py`: Interactive Streamlit dashboard.
+-   `scheduler.py`: Automated daily orchestration.
 
-```bash
-# Runs automatically at 08:30 CLT, Sunday–Thursday
-python scheduler.py
-
-# Or run once now for testing
-python scheduler.py --now
-```
-
-## 📊 Selection Logic & Strategy
-
-The system identifies "Mean Reversion" opportunities—stocks that are mathematically oversold but show signs of institutional accumulation.
-
-### 1. The Strategy: "Buying the Quality Dip"
-The core objective is to find high-probability reversal points. We look for two specific anomalies happening simultaneously:
-*   **Oversold Price Action**: Price has dropped faster than historical norms.
-*   **Institutional Confirmation**: High trading volume suggests "Smart Money" is stepping in to support the price.
-
-### 2. How it Works (The Pipeline)
-1.  **Scrape**: Pulls live data from EGX equities tables.
-2.  **Enrich**: Combines today's data with historical data from SQLite to calculate moving averages.
-3.  **Analyze**: 
-    *   **Filter 1 (RSI < 35)**: Eliminates any stock not in an "Oversold" state.
-    *   **Filter 2 (Volume Spike ≥ 1.5x)**: Eliminates stocks where the price drop isn't backed by an increase in relative trading volume (10-day average).
-4.  **Rank**: All stocks passing both filters are ranked by the **magnitude of the Volume Spike**. The larger the spike, the higher the conviction.
-5.  **Output**: The **Top 3** ranked stocks are selected. 
-
-### 3. Fallback Mechanism (The Watchlist)
-If the market is quiet and *no* stocks meet the strict Volume Spike threshold, the system triggers **Safety Mode**. Instead of an empty report, it identifies the **3 most oversold stocks** (lowest RSI) and labels them as a **Watchlist**. This ensures you are always tracking the most significant pullbacks in the market.
-
-### 4. Technical Indicators
-| Indicator | Threshold | Why |
-|-----------|-----------|-----|
-| RSI(14)   | < 35      | Stock is mathematically "oversold" — potential reversal. |
-| Volume Spike | ≥ 1.5× | Today's volume is 50%+ above 10-day average — suggests accumulation. |
-| Target    | +5%       | Automatic take-profit level set above entry. |
-| Stop-Loss | −3%       | Strict risk management level set below entry. |
+---
 
 ## ⚠️ Disclaimer
+This tool is for **educational purposes only**. It does not constitute financial advice. Always consult a licensed financial advisor before making investment decisions. Trading in the stock market involves significant risk.
 
-This tool is for **educational purposes only**. It does not constitute financial advice. Always consult a licensed financial advisor before making investment decisions. Past performance does not guarantee future results.
+---
+Built for the **Egyptian Market** 🇪🇬 · [Join the Telegram Channel](https://t.me/egx67_bot)
