@@ -200,44 +200,114 @@ with left_col:
     st.markdown("<h3 style='font-family:Outfit; color:#f8fafc;'>📈 TRAJECTORY ANALYSIS</h3>", unsafe_allow_html=True)
     if picks:
         selected_stock = st.selectbox("FOCUS ASSET", [p.get("name") for p in picks])
+        active_pick = next((p for p in picks if p.get("name") == selected_stock), None)
         history = database.get_historical_prices(selected_stock, days=60)
         
-        if not history.empty:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=history["date"], y=history["Last"],
-                line=dict(color='#818cf8', width=3),
-                fill='tozeroy', fillcolor='rgba(129, 140, 248, 0.05)',
-                name="Close"
-            ))
+        if active_pick:
+            entry = active_pick.get("entry_price", 0)
+            target = active_pick.get("target_price", 0)
+            stop = active_pick.get("stop_loss", 0)
             
-            # Trendlines
-            fig.update_layout(
-                template="plotly_dark",
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=0, r=0, t=20, b=0),
-                height=350,
-                xaxis=dict(showgrid=False),
-                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)')
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            if not history.empty and len(history) >= 5:
+                # Full trajectory chart with reference lines
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=history["date"], y=history["Last"],
+                    mode="lines+markers",
+                    line=dict(color='#818cf8', width=3),
+                    marker=dict(size=6, color='#818cf8'),
+                    fill='tozeroy', fillcolor='rgba(129, 140, 248, 0.05)',
+                    name="Close"
+                ))
+                # Reference lines
+                for val, color, label in [
+                    (entry, "#818cf8", f"Entry: {entry:.2f}"),
+                    (target, "#10b981", f"Target: {target:.2f}"),
+                    (stop, "#ef4444", f"Stop: {stop:.2f}"),
+                ]:
+                    fig.add_hline(
+                        y=val, line_dash="dash", line_color=color,
+                        annotation_text=label, annotation_font_color=color,
+                        annotation_position="top left"
+                    )
+                fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    margin=dict(l=0, r=0, t=20, b=0),
+                    height=380,
+                    xaxis=dict(showgrid=False),
+                    yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)')
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                # Early-stage: show Price Levels bar chart
+                fig = go.Figure()
+                levels = ["Stop-Loss", "Entry", "Target"]
+                values = [stop, entry, target]
+                colors = ["#ef4444", "#818cf8", "#10b981"]
+                
+                fig.add_trace(go.Bar(
+                    x=levels, y=values,
+                    marker_color=colors,
+                    text=[f"{v:.2f} EGP" for v in values],
+                    textposition="outside",
+                    textfont=dict(color="white", size=14),
+                    width=0.5,
+                ))
+                fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    margin=dict(l=0, r=0, t=30, b=0),
+                    height=380,
+                    yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', title="Price (EGP)"),
+                    xaxis=dict(showgrid=False),
+                    title=dict(text=f"{selected_stock} — Price Levels", font=dict(color="#94a3b8", size=14)),
+                    showlegend=False,
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                st.caption("📊 Full trajectory chart will appear as daily data accumulates.")
     else:
         st.info("WAITING FOR SIGNAL DATA...")
 
 with right_col:
     st.markdown("<h3 style='font-family:Outfit; color:#f8fafc;'>📊 MARKET FLOW</h3>", unsafe_allow_html=True)
     if not market_df.empty:
-        # Simple stats
+        # Summary metric
         avg_v = f"{market_df['Change_Pct'].mean():.2f}%"
         st.metric("AVG MARKET DELTA", avg_v)
         
-        # Mini Table
-        st.dataframe(
-            market_df[["Name", "Last", "Change_Pct"]].head(10),
-            use_container_width=True,
-            hide_index=True
-        )
+        # Top Movers chart
+        if "Change_Pct" in market_df.columns:
+            top_movers = market_df.nlargest(5, "Change_Pct")
+            bottom_movers = market_df.nsmallest(5, "Change_Pct")
+            movers = pd.concat([top_movers, bottom_movers]).sort_values("Change_Pct", ascending=True)
+            
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(
+                y=movers["Name"], x=movers["Change_Pct"],
+                orientation="h",
+                marker_color=[
+                    "#10b981" if v > 0 else "#ef4444" for v in movers["Change_Pct"]
+                ],
+                text=[f"{v:+.1f}%" for v in movers["Change_Pct"]],
+                textposition="outside",
+                textfont=dict(size=10),
+            ))
+            fig2.update_layout(
+                template="plotly_dark",
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=0, r=40, t=10, b=0),
+                height=300,
+                xaxis=dict(showgrid=False, visible=False),
+                yaxis=dict(showgrid=False, tickfont=dict(size=9)),
+                showlegend=False,
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("No market data yet.")
 
 # ─────────────────────────────────────────────────────────────
 # HISTORICAL AUDIT
