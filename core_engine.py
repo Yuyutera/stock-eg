@@ -194,11 +194,11 @@ def _enrich_with_history(df: pd.DataFrame) -> pd.DataFrame:
 # CLI: `python core_engine.py`
 # ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("\n🚀 EGX Intelligence System — Manual Run\n")
+    print("\n EGX Intelligence System — Manual Run\n")
     result = run(force=True)  # Force=True to test on any day
 
     if result["success"]:
-        print(f"\n✅ Success! Scraped {result['stocks_scraped']} stocks.")
-        print(f"   Generated {len(result['picks'])} picks for {result['date']}.")
+        print(f"\n Success! Scraped {result['stocks_scraped']} stocks.")
+        print(f"  Generated {len(result['picks'])} picks for {result['date']}.")
     else:
-        print(f"\n❌ Pipeline failed: {result['error']}")
+        print(f"\n Pipeline failed: {result['error']}")

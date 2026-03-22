@@ -30,6 +30,7 @@ from apscheduler.triggers.cron import CronTrigger
 import config
 import core_engine
 import telegram_bot
+import tracker
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -43,13 +44,21 @@ def morning_job():
     The main analysis job. Called by APScheduler at each scheduled time.
 
     Steps:
-        1. Run the core pipeline (scrape + analyze).
-        2. If successful, send the Telegram report.
-        3. Log the outcome.
+        1. Check outcomes of previous picks (tracker).
+        2. Run the core pipeline (scrape + analyze).
+        3. If successful, send the Telegram report.
+        4. Log the outcome.
     """
     logger.info("=" * 60)
     logger.info("📊 ANALYSIS JOB TRIGGERED — %s", datetime.now().isoformat())
     logger.info("=" * 60)
+
+    # Step 0: Check outcomes of previous picks.
+    try:
+        tracker_result = tracker.check_outcomes()
+        logger.info(f"Tracker: {tracker_result}")
+    except Exception as e:
+        logger.error(f"Tracker error (non-fatal): {e}")
 
     # Run the pipeline.
     result = core_engine.run(force=False)

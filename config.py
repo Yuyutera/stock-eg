@@ -77,6 +77,20 @@ STOP_LOSS_PCT = 0.03  # −3%
 # How many "Top Picks" to return each day.
 TOP_N_PICKS = 3
 
+# Minimum number of trading days of data before generating signals.
+MIN_HISTORY_DAYS = 28
+
+# Minimum daily volume (shares) to filter out thinly traded stocks.
+MIN_DAILY_VOLUME = 500_000
+
+# Maximum trading days to hold a pick before auto-expiring.
+MAX_HOLDING_DAYS = 10
+
+# ATR-based exit multipliers (used when ATR is available).
+ATR_TARGET_MULTIPLIER = 2.0   # Target = Entry + (2.0 × ATR)
+ATR_STOP_MULTIPLIER   = 1.5   # Stop   = Entry - (1.5 × ATR)
+
+
 # ─────────────────────────────────────────────
 # 5. TELEGRAM BOT
 # ─────────────────────────────────────────────
@@ -97,7 +111,7 @@ TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "821030357")
 SCHEDULE_TIMES = [
     {"hour": 10, "minute": 0,  "label": "Market Open"},
     {"hour": 12, "minute": 15, "label": "Mid-Day"},
-    {"hour": 14, "minute": 0,  "label": "Pre-Close"},
+    {"hour": 13, "minute": 0,  "label": "Pre-Close"},
 ]
 SCHEDULE_TIMEZONE = "Africa/Cairo"
 

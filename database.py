@@ -104,6 +104,9 @@ def init_db():
                 volume_spike REAL,
                 change_pct   REAL,
                 signal_type  TEXT,
+                outcome      TEXT    DEFAULT 'PENDING',
+                outcome_date TEXT,
+                outcome_price REAL,
                 created_at   TEXT    DEFAULT (datetime('now'))
             );
         """)
@@ -112,6 +115,32 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_picks_date
             ON picks(date);
         """)
+
+        # Migrate: add outcome columns if they don't exist yet.
+        try:
+            conn.execute("ALTER TABLE picks ADD COLUMN outcome TEXT DEFAULT 'PENDING'")
+        except sqlite3.OperationalError:
+            pass  # Column already exists.
+        try:
+            conn.execute("ALTER TABLE picks ADD COLUMN outcome_date TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE picks ADD COLUMN outcome_price REAL")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE picks ADD COLUMN confidence_score REAL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE picks ADD COLUMN signal_reason TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE picks ADD COLUMN expires_after INTEGER DEFAULT 10")
+        except sqlite3.OperationalError:
+            pass
 
     logger.info(f"Database initialized at {config.DB_PATH}")
 
@@ -190,8 +219,9 @@ def save_picks(picks: List[Dict], pick_date: Optional[str] = None):
                     """
                     INSERT INTO picks
                         (date, rank, name, entry_price, target_price,
-                         stop_loss, rsi, volume_spike, change_pct, signal_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         stop_loss, rsi, volume_spike, change_pct,
+                         signal_type, confidence_score, signal_reason, expires_after)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         today,
@@ -204,6 +234,9 @@ def save_picks(picks: List[Dict], pick_date: Optional[str] = None):
                         pick.get("Volume_Spike"),
                         pick.get("Change_Pct"),
                         pick.get("Signal_Type"),
+                        pick.get("confidence_score"),
+                        pick.get("Signal_Reason"),
+                        pick.get("Expires_After"),
                     ),
                 )
                 rows_saved += 1
@@ -270,7 +303,8 @@ def get_latest_picks(target_date: Optional[str] = None) -> List[Dict]:
         cursor = conn.execute(
             """
             SELECT rank, name, entry_price, target_price, stop_loss,
-                   rsi, volume_spike, change_pct, signal_type, date
+                   rsi, volume_spike, change_pct, signal_type, date,
+                   confidence_score, signal_reason, expires_after
             FROM picks
             WHERE date = ?
             ORDER BY rank
@@ -279,6 +313,27 @@ def get_latest_picks(target_date: Optional[str] = None) -> List[Dict]:
         )
         picks = [dict(row) for row in cursor.fetchall()]
     return picks
+
+
+def get_pick_price_journey(stock_name: str, pick_date: str) -> List[Dict]:
+    """
+    Get day-by-day closing prices for a stock from its pick date onward.
+    Used by the Live Pick Tracker to show the price evolution since entry.
+
+    Returns:
+        List of dicts: [{"date": "2026-03-08", "price": 19.77}, ...]
+    """
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT date, last_price AS price
+            FROM daily_prices
+            WHERE name = ? AND date >= ?
+            ORDER BY date
+            """,
+            (stock_name, pick_date),
+        )
+        return [dict(row) for row in cursor.fetchall()]
 
 
 def get_picks_history(days: int = 30) -> pd.DataFrame:
@@ -290,7 +345,7 @@ def get_picks_history(days: int = 30) -> pd.DataFrame:
         df = pd.read_sql_query(
             """
             SELECT date, rank, name, entry_price, target_price,
-                   stop_loss, rsi, volume_spike, signal_type
+                   stop_loss, rsi, volume_spike, signal_type, outcome
             FROM picks
             ORDER BY date DESC, rank
             LIMIT ?
@@ -299,6 +354,101 @@ def get_picks_history(days: int = 30) -> pd.DataFrame:
             params=(days * config.TOP_N_PICKS,),
         )
     return df
+
+
+def get_recent_outcomes(limit: int = 10) -> List[Dict]:
+    """
+    Get the most recent resolved or pending picks to show in reports.
+    """
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT date, name, outcome, entry_price, outcome_price,
+                   confidence_score
+            FROM picks
+            WHERE outcome != 'PENDING' OR (date > date('now', '-3 days'))
+            ORDER BY date DESC, rank
+            LIMIT ?
+            """,
+            (limit,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_pending_picks() -> List[Dict]:
+    """
+    Get all picks that haven't been resolved yet (outcome = 'PENDING').
+    """
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, date, name, entry_price, target_price, stop_loss,
+                   rsi, volume_spike, signal_type, outcome
+            FROM picks
+            WHERE outcome = 'PENDING' OR outcome IS NULL
+            ORDER BY date
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def update_pick_outcome(
+    pick_id: int, outcome: str, outcome_price: float, outcome_date: str
+):
+    """
+    Mark a pick as HIT_TARGET, HIT_STOP, or EXPIRED.
+    """
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE picks
+            SET outcome = ?, outcome_price = ?, outcome_date = ?
+            WHERE id = ?
+            """,
+            (outcome, outcome_price, outcome_date, pick_id),
+        )
+    logger.info(f"Pick #{pick_id} → {outcome} at {outcome_price} on {outcome_date}")
+
+
+def get_performance_stats() -> Dict:
+    """
+    Calculate overall win/loss/pending/expired statistics.
+    """
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN outcome = 'HIT_TARGET' THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN outcome = 'HIT_STOP' THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN outcome = 'EXPIRED' THEN 1 ELSE 0 END) as expired,
+                SUM(CASE WHEN outcome = 'PENDING' OR outcome IS NULL THEN 1 ELSE 0 END) as pending
+            FROM picks
+            """
+        )
+        row = dict(cursor.fetchone())
+
+    resolved = row["wins"] + row["losses"]
+    row["win_rate"] = round((row["wins"] / resolved * 100), 1) if resolved > 0 else 0.0
+    return row
+
+
+def get_available_history_days() -> int:
+    """
+    Return the number of distinct trading days stored in daily_prices.
+    Used by the dashboard to show a progress bar during the data
+    accumulation phase before signals can be reliably generated.
+    """
+    with get_connection() as conn:
+        try:
+            cursor = conn.execute(
+                "SELECT COUNT(DISTINCT date) FROM daily_prices"
+            )
+            result = cursor.fetchone()
+            return result[0] if result else 0
+        except Exception as e:
+            logger.warning("Could not count history days: %s", e)
+            return 0
 
 
 # ─────────────────────────────────────────────────────────────

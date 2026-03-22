@@ -20,3 +20,8 @@ static/
 # IDEs
 .vscode/
 .idea/
+
+# Logs
+logs/
+check.py
+db_output.txt

@@ -25,6 +25,7 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 
 import config
+import database
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,56 @@ def format_report(picks: List[Dict], report_date: Optional[str] = None) -> str:
             lines.append("─" * 30)
 
         lines.append("")
+
+    # Performance Stats
+    try:
+        stats = database.get_performance_stats()
+        recent = database.get_recent_outcomes(limit=5)
+        
+        if stats["total"] > 0:
+            lines.extend([
+                "━" * 30,
+                "📊 *Performance Tracker*",
+                f"    Win Rate: `{stats['win_rate']}%` | "
+                f"Wins: `{stats['wins']}` | "
+                f"Losses: `{stats['losses']}`",
+                "",
+            ])
+            
+            if recent:
+                lines.append("🗂 *Recent Outcomes:*")
+                outcome_icons = {
+                    "HIT_TARGET": "🎯",
+                    "HIT_STOP": "🛑",
+                    "PENDING": "⏳",
+                    "EXPIRED": "⏰"
+                }
+                for r in recent:
+                    icon = outcome_icons.get(r['outcome'], "❓")
+                    entry_p = r.get('entry_price', 0) or 0
+                    out_p = r.get('outcome_price', 0) or 0
+                    
+                    if r['outcome'] in ("HIT_TARGET", "HIT_STOP") and entry_p > 0:
+                        pnl = ((out_p - entry_p) / entry_p) * 100
+                        pnl_str = f"+{pnl:.1f}%" if pnl > 0 else f"{pnl:.1f}%"
+                        lines.append(
+                            f"    {icon} *{r['name']}*\n"
+                            f"        Buy: `{entry_p:.2f}` → Now: `{out_p:.2f}` ({pnl_str})"
+                        )
+                    elif r['outcome'] == "EXPIRED" and entry_p > 0:
+                        lines.append(
+                            f"    {icon} *{r['name']}*\n"
+                            f"        Buy: `{entry_p:.2f}` → Expired at `{out_p:.2f}`"
+                        )
+                    else:
+                        lines.append(
+                            f"    {icon} *{r['name']}*\n"
+                            f"        Buy: `{entry_p:.2f}` → Monitoring..."
+                        )
+                lines.append("")
+                
+    except Exception as e:
+        logger.error(f"Telegram format stats error: {e}")
 
     # Footer
     lines.extend([
